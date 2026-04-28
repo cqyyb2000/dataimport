@@ -1,0 +1,53 @@
+# Flask 核心框架
+Flask==3.0.2
+Flask-CORS==4.0.0
+Flask-SQLAlchemy==3.1.1
+
+# 数据库相关
+SQLAlchemy==2.0.28
+PyMySQL==1.1.0
+
+# 数据库迁移工具（可选，用于数据库版本管理）
+Flask-Migrate==4.0.5
+alembic==1.16.1
+
+# 认证相关
+PyJWT==2.10.1
+
+# 环境变量管理
+python-dotenv==1.0.1
+
+# 图像处理
+Pillow==11.2.1
+
+# 生产服务器（Linux 常用 gunicorn；Windows 推荐 waitress + python run_waitress.py）
+gunicorn==21.2.0
+waitress==3.0.2
+
+# 测试框架（开发依赖）
+pytest==8.3.5
+
+# Flask 依赖（自动安装，但明确列出版本以确保兼容性）
+Werkzeug==3.0.1
+Jinja2==3.1.5
+MarkupSafe==3.0.2
+click==8.1.8
+itsdangerous==2.2.0
+blinker==1.9.0
+
+# SQLAlchemy 依赖
+greenlet==3.1.1
+typing_extensions==4.12.2
+
+# Excel 读写（科目余额导出、凭证明细导入等）
+openpyxl==3.1.2
+
+# 其他依赖
+certifi==2025.4.26
+charset-normalizer==3.4.2
+colorama==0.4.6
+cryptography==44.0.2
+idna==3.10
+packaging==25.0
+urllib3==2.4.0
+requests==2.32.3

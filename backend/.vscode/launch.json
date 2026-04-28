@@ -1,0 +1,52 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Flask: debugpy（推荐）",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "module": "flask",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "FLASK_APP": "app.py",
+                "FLASK_DEBUG": "1"
+            },
+            "args": [
+                "run",
+                "--no-debugger",
+                "--no-reload",
+                "--without-threads",
+                "--host=0.0.0.0",
+                "--port=5000"
+            ],
+            "jinja": true,
+            "autoStartBrowser": false,
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Flask: Python 扩展（无反应时试这个）",
+            "type": "python",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "module": "flask",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "FLASK_APP": "app.py",
+                "FLASK_DEBUG": "1"
+            },
+            "args": [
+                "run",
+                "--no-debugger",
+                "--no-reload",
+                "--without-threads",
+                "--host=0.0.0.0",
+                "--port=5000"
+            ],
+            "jinja": true,
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}

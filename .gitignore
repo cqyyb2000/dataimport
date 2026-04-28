@@ -1,0 +1,34 @@
+# 编辑器
+.vscode/
+.idea/
+*.code-workspace
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虚拟环境
+venv/
+env/
+.venv/
+ENV/
+
+# 构建目录
+dist/
+build/
+*.egg-info/
+[411012]重庆市公路工程质量检测中心/
+SY002[重庆市公路工程质量检测中心]/
+
+# 日志
+logs/
+*.log
+
+# 环境变量
+.env
+.env.local
+
+# 系统文件
+.DS_Store
+Thumbs.db
