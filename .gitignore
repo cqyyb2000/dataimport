@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 编辑器
 .vscode/
 .idea/
@@ -32,3 +33,23 @@ logs/
 # 系统文件
 .DS_Store
 Thumbs.db
+=======
+# Build and Release Folders
+bin-debug/
+bin-release/
+[Oo]bj/
+[Bb]in/
+
+# Other files and folders
+.settings/
+
+# Executables
+*.swf
+*.air
+*.ipa
+*.apk
+
+# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
+# should NOT be excluded as they contain compiler settings and other important
+# information for Eclipse / Flash Builder.
+>>>>>>> ce06ad812d070e9c28716d93d9829bf1ceb8a39f
