@@ -1,0 +1,3 @@
+# 离线导出的镜像体积很大，勿提交
+offline-bundle/
+.env

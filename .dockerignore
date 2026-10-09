@@ -1,0 +1,28 @@
+# Docker 构建上下文为仓库根目录时使用
+# 与 docs/docker 下 Dockerfile 配合
+
+.git
+**/.git
+**/.venv
+**/venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/logs
+**/uploads
+**/.env
+**/.env.*
+!**/.env.example
+
+# 体积大的本地资料包，不打进镜像
+backend/**/*.rar
+backend/**/*.zip
+backend/offline_packages
+backend/.cursor
+frontend/.cursor
+frontend/dist
+frontend/Pencil
+frontend/docs
+
+*.md
+!docs/docker/**/*.md

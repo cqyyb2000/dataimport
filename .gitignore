@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 编辑器
 .vscode/
 .idea/
@@ -19,37 +18,39 @@ ENV/
 dist/
 build/
 *.egg-info/
+
+# 本地业务数据包（勿入库）
 [411012]重庆市公路工程质量检测中心/
 SY002[重庆市公路工程质量检测中心]/
+backend/**/*.zip
+backend/**/*.rar
+backend/offline_packages/
 
-# 日志
+# 日志与上传
 logs/
 *.log
+uploads/
 
 # 环境变量
 .env
 .env.local
+.env.*
+!.env.example
+
+# 依赖
+node_modules/
 
 # 系统文件
 .DS_Store
 Thumbs.db
-=======
-# Build and Release Folders
+
+# 其他构建产物
 bin-debug/
 bin-release/
 [Oo]bj/
 [Bb]in/
-
-# Other files and folders
 .settings/
-
-# Executables
 *.swf
 *.air
 *.ipa
 *.apk
-
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
->>>>>>> ce06ad812d070e9c28716d93d9829bf1ceb8a39f
