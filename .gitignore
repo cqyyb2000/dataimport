@@ -54,3 +54,6 @@ bin-release/
 *.air
 *.ipa
 *.apk
+
+# 离线包本地备份勿入库
+backend/offline_packages_bak*/
