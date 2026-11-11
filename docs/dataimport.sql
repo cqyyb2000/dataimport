@@ -650,7 +650,7 @@ CREATE TABLE `menus` (
   `sort_order` int(11) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -659,7 +659,7 @@ CREATE TABLE `menus` (
 
 LOCK TABLES `menus` WRITE;
 /*!40000 ALTER TABLE `menus` DISABLE KEYS */;
-INSERT INTO `menus` VALUES (1,'系统管理','',0,'','Setting',0,'2025-02-18 07:49:01'),(2,'用户管理','system/UserManage',1,'/system/UserManage','User',0,'2025-02-18 07:49:01'),(3,'菜单管理','system/MenuManage',1,'/system/MenuManage','Menu',0,'2025-02-18 07:49:01'),(4,'权限管理','system/PermissionManage',1,'/system/PermissionManage','Lock',0,'2025-02-18 07:49:01'),(5,'基础档案','',0,'','Lock',0,'2025-03-28 01:02:19'),(6,'账套档案引入','accountInfo/ShareUpload',5,'/accountInfo/ShareUpload','Lock',0,'2025-03-28 01:06:03'),(20,'账套管理','accountInfo/AccountBookList',5,'/accountInfo/AccountBookList','Lock',0,'2026-02-03 14:13:17'),(21,'档案管理','accountInfo/CustomArchiveManage',5,'/accountInfo/CustomArchiveManage','Lock',0,'2026-02-06 06:29:14'),(22,'业务处理','',0,'','Lock',0,'2026-02-06 13:50:23'),(23,'凭证信息引入','glvoucher/GlUpload',22,'/glvoucher/GlUpload','Lock',0,'2026-02-06 13:51:45'),(24,'凭证列表','glvoucher/VoucherList',22,'/glvoucher/VoucherList','Lock',0,'2026-02-09 14:20:09'),(25,'会计科目','accountInfo/AccountArchiveManage',5,'/accountInfo/AccountArchiveManage','Lock',0,'2026-04-19 15:13:53'),(26,'数据记账','glvoucher/DataBookkeeping',22,'/glvoucher/DataBookkeeping','Lock',0,'2026-02-06 13:51:45'),(27,'报表','',0,'','Lock',0,'2026-02-06 13:51:45'),(28,'科目余额表','reportCenter/AccountBalanceReport',27,'/reportCenter/AccountBalanceReport','Lock',0,'2026-02-06 13:51:45');
+INSERT INTO `menus` VALUES (1,'系统管理','',0,'','Setting',0,'2025-02-18 07:49:01'),(2,'用户管理','system/UserManage',1,'/system/UserManage','User',0,'2025-02-18 07:49:01'),(3,'菜单管理','system/MenuManage',1,'/system/MenuManage','Menu',0,'2025-02-18 07:49:01'),(4,'权限管理','system/PermissionManage',1,'/system/PermissionManage','Lock',0,'2025-02-18 07:49:01'),(5,'基础档案','',0,'','Lock',0,'2025-03-28 01:02:19'),(6,'账套档案引入','accountInfo/ShareUpload',5,'/accountInfo/ShareUpload','Lock',0,'2025-03-28 01:06:03'),(20,'账套管理','accountInfo/AccountBookList',5,'/accountInfo/AccountBookList','Lock',0,'2026-02-03 14:13:17'),(21,'档案管理','accountInfo/CustomArchiveManage',5,'/accountInfo/CustomArchiveManage','Lock',0,'2026-02-06 06:29:14'),(22,'业务处理','',0,'','Lock',0,'2026-02-06 13:50:23'),(23,'凭证信息引入','glvoucher/GlUpload',22,'/glvoucher/GlUpload','Lock',0,'2026-02-06 13:51:45'),(24,'凭证列表','glvoucher/VoucherList',22,'/glvoucher/VoucherList','Lock',0,'2026-02-09 14:20:09'),(25,'会计科目','accountInfo/AccountArchiveManage',5,'/accountInfo/AccountArchiveManage','Lock',0,'2026-04-19 15:13:53'),(26,'数据记账','glvoucher/DataBookkeeping',22,'/glvoucher/DataBookkeeping','Lock',0,'2026-02-06 13:51:45'),(27,'报表','',0,'','Lock',0,'2026-02-06 13:51:45'),(28,'科目余额表','reportCenter/AccountBalanceReport',27,'/reportCenter/AccountBalanceReport','Lock',0,'2026-02-06 13:51:45'),(29,'凭证录入','glvoucher/VoucherEntry',22,'/glvoucher/VoucherEntry','Edit',1,'2026-11-11 01:24:00');
 /*!40000 ALTER TABLE `menus` ENABLE KEYS */;
 UNLOCK TABLES;
 

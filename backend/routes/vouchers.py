@@ -4,6 +4,11 @@ import importlib
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func, and_, or_
 from Auth.auth import token_required
+from services.voucher_entry_service import (
+    VoucherEntryError,
+    create_manual_voucher,
+    suggest_next_voucher_number,
+)
 from Model import (
     GLVoucher,
     GLVoucherEntry,
@@ -540,3 +545,89 @@ def import_vouchers_excel_flat(current_user):
 def import_vouchers_excel_nested(current_user, account_book_code, fiscal_year):
     """同上，账套、年度在 URL 中。"""
     return _voucher_excel_import_handler(account_book_code, fiscal_year)
+
+
+def _voucher_entry_error_response(exc: VoucherEntryError):
+    return jsonify({
+        'success': False,
+        'message': exc.message,
+        'errors': exc.errors,
+    }), exc.status
+
+
+def _create_voucher_handler(current_user, payload, account_book_code=None, fiscal_year=None):
+    data = dict(payload or {})
+    if account_book_code is not None:
+        data['account_book_code'] = account_book_code
+    if fiscal_year is not None:
+        data['fiscal_year'] = fiscal_year
+    try:
+        saved = create_manual_voucher(data, default_prepared_by=getattr(current_user, 'username', None))
+    except VoucherEntryError as exc:
+        return _voucher_entry_error_response(exc)
+    except Exception as exc:
+        return jsonify({
+            'success': False,
+            'message': f'保存凭证失败: {exc}',
+        }), 500
+    return jsonify({
+        'success': True,
+        'message': '凭证保存成功',
+        'data': saved,
+    }), 201
+
+
+@vouchers_bp.route('/api/vouchers/next_number', methods=['GET'])
+@token_required
+def next_voucher_number(current_user):
+    """按账套、年度、期间、凭证类型给出下一张凭证号。"""
+    account_book_code = request.args.get('account_book_code', '')
+    fiscal_year = request.args.get('fiscal_year', type=int)
+    period_number = request.args.get('period_number', type=int)
+    voucher_type_code = request.args.get('voucher_type_code', '')
+    if fiscal_year is None or period_number is None:
+        return jsonify({
+            'success': False,
+            'message': '会计年度和会计期间不能为空',
+        }), 400
+    try:
+        number = suggest_next_voucher_number(
+            account_book_code,
+            fiscal_year,
+            period_number,
+            voucher_type_code,
+        )
+    except VoucherEntryError as exc:
+        return _voucher_entry_error_response(exc)
+    return jsonify({
+        'success': True,
+        'voucher_number': number,
+    })
+
+
+@vouchers_bp.route('/api/vouchers', methods=['POST'])
+@token_required
+def create_voucher(current_user):
+    """
+    手工录入记账凭证。
+    写入 gl_voucher、gl_voucher_entry、gl_voucher_entry_auxiliary。
+    保存前检查：末级科目、有辅助核算时必须填写、借贷金额相等。
+    不重算科目余额。
+    """
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return jsonify({'success': False, 'message': '请求体须为 JSON'}), 400
+    return _create_voucher_handler(current_user, payload)
+
+
+@vouchers_bp.route(
+    '/api/account_books/<account_book_code>/fiscal_years/<int:fiscal_year>/vouchers',
+    methods=['POST'],
+)
+@token_required
+def create_voucher_by_account_book(current_user, account_book_code, fiscal_year):
+    """同上，账套与年度在路径中。"""
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return jsonify({'success': False, 'message': '请求体须为 JSON'}), 400
+    return _create_voucher_handler(current_user, payload, account_book_code, fiscal_year)

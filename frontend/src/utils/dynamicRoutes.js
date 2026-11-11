@@ -20,6 +20,7 @@ const componentMap = {
 
   // 凭证管理组件
   'glvoucher/VoucherList': () => import('@/views/glvoucher/VoucherList.vue'),
+  'glvoucher/VoucherEntry': () => import('@/views/glvoucher/VoucherEntry.vue'),
 
   // 报表中心
   'reportCenter/AccountBalanceReport': () => import('@/views/reportCenter/AccountBalanceReport.vue')
