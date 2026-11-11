@@ -306,6 +306,27 @@ async function getVoucherDetailByAccountBook(accountBookCode, fiscalYear, vouche
 
 ---
 
+### 4. 手工录入凭证
+
+```
+POST /api/vouchers
+POST /api/account_books/{account_book_code}/fiscal_years/{fiscal_year}/vouchers
+```
+
+请求体写入 `gl_voucher`、`gl_voucher_entry`、`gl_voucher_entry_auxiliary`。凭证状态记为「未记账」，不改科目余额。
+
+保存时检查：凭证摘要必填；分录只能记在末级且启用的科目上；同一行只能有借方或贷方；科目若配置了辅助核算则每项都要填写，并能在对应自定义档案中找到取值；借方合计必须等于贷方合计。凭证日期的年份、月份要与会计年度、会计期间一致（期间 13 的日期须在 12 月）。
+
+下一张凭证号：
+
+```
+GET /api/vouchers/next_number?account_book_code=ZT01&fiscal_year=2024&period_number=1&voucher_type_code=JZ
+```
+
+返回 `voucher_number`，格式为 `类型-期间-四位序号`，例如 `JZ-01-0001`。
+
+---
+
 ## 注意事项
 
 1. **认证要求**：所有接口都需要在请求头中携带有效的 JWT token

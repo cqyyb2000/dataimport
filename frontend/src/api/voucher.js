@@ -55,6 +55,29 @@ export const voucherApi = {
    */
   getVoucherTypesByPath(accountBookCode, fiscalYear) {
     return api.get(`/account_books/${accountBookCode}/fiscal_years/${fiscalYear}/voucher_types`)
+  },
+
+  /**
+   * 下一张凭证号
+   * GET /api/vouchers/next_number
+   */
+  nextNumber(accountBookCode, fiscalYear, periodNumber, voucherTypeCode) {
+    return api.get('/vouchers/next_number', {
+      params: {
+        account_book_code: accountBookCode,
+        fiscal_year: fiscalYear,
+        period_number: periodNumber,
+        voucher_type_code: voucherTypeCode
+      }
+    })
+  },
+
+  /**
+   * 手工录入凭证
+   * POST /api/vouchers
+   */
+  create(data) {
+    return api.post('/vouchers', data)
   }
 }
 

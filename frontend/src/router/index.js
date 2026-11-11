@@ -67,6 +67,12 @@ const routes = [
         meta: { requiresAuth: true, title: '凭证列表' }
       },
       {
+        path: 'glvoucher/entry',
+        name: 'voucherEntry',
+        component: () => import('@/views/glvoucher/VoucherEntry.vue'),
+        meta: { requiresAuth: true, title: '凭证录入' }
+      },
+      {
         path: 'glvoucher/data-bookkeeping',
         name: 'dataBookkeeping',
         component: () => import('@/views/glvoucher/DataBookkeeping.vue'),
