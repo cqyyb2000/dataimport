@@ -20,6 +20,7 @@ from .gl_voucher import GLVoucher
 from .gl_voucher_entry import GLVoucherEntry
 from .gl_voucher_entry_auxiliary import GLVoucherEntryAuxiliary
 from .gl_account_balance import GLAccountBalance
+from .bx import BxDepartment, BxProject, BxBudget, BxClaim, BxDocSeq
 
 __all__ = [
     'db',
@@ -43,4 +44,9 @@ __all__ = [
     'GLVoucherEntry',
     'GLVoucherEntryAuxiliary',
     'GLAccountBalance',
+    'BxDepartment',
+    'BxProject',
+    'BxBudget',
+    'BxClaim',
+    'BxDocSeq',
 ]

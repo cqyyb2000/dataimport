@@ -5,6 +5,15 @@ from Model.dataCls import User, db
 
 users_bp = Blueprint('users', __name__)
 
+
+def _clean_role(role):
+    if role is None or role == '':
+        return None
+    if role not in (User.ROLE_ACCOUNTANT, User.ROLE_CASHIER):
+        raise ValueError('角色只能是会计或出纳')
+    return role
+
+
 @users_bp.route('/api/login', methods=['POST'])
 def login():
     data = request.json
@@ -16,6 +25,7 @@ def login():
             {
                 'success': True,
                 'isAdmin': user.is_admin,
+                'role': user.role,
                 'token': token,
                 'username': data['username'],
                 'menus': usermenus
@@ -76,12 +86,17 @@ def update_user(current_user, user_id):
             user.password_hash = generate_password_hash(data['password'])
         if 'is_admin' in data:
             user.is_admin = data['is_admin']
+        if 'role' in data:
+            user.role = _clean_role(data.get('role'))
         db.session.commit()
         return jsonify({
             'success': True,
             'message': '用户更新成功',
             'data': user.to_dict()
         })
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
     except Exception as e:
         db.session.rollback()
         return jsonify({
@@ -91,11 +106,16 @@ def update_user(current_user, user_id):
 
 @users_bp.route('/api/create_user', methods=['POST'])
 def create_user():
-    data = request.json
+    data = request.json or {}
+    try:
+        role = _clean_role(data.get('role'))
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
     user = User(
-        username=data['username'], 
+        username=data['username'],
         password_hash=generate_password_hash(data['password']),
-        is_admin=data.get('is_admin', False)
+        is_admin=data.get('is_admin', False),
+        role=role,
     )
     db.session.add(user)
     db.session.commit()

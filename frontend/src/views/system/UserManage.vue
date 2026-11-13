@@ -18,6 +18,11 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="报销角色">
+          <template #default="scope">
+            {{ roleText(scope.row.role) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200">
           <template #default="scope">
             <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
@@ -66,6 +71,12 @@
         <el-form-item label="是否管理员">
           <el-switch v-model="userForm.is_admin" />
         </el-form-item>
+        <el-form-item v-if="!userForm.is_admin" label="报销角色">
+          <el-select v-model="userForm.role" clearable placeholder="请选择">
+            <el-option label="会计" value="accountant" />
+            <el-option label="出纳" value="cashier" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -97,8 +108,15 @@ const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 const userForm = ref({
   username: '',
   password: '',
-  is_admin: false
+  is_admin: false,
+  role: null
 })
+
+const roleText = (role) => {
+  if (role === 'accountant') return '会计'
+  if (role === 'cashier') return '出纳'
+  return ''
+}
 
 const rules = {
   username: [
@@ -163,7 +181,8 @@ const handleAdd = () => {
   userForm.value = {
     username: '',
     password: '',
-    is_admin: false
+    is_admin: false,
+    role: null
   }
   dialogVisible.value = true
 }
@@ -204,15 +223,17 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validate()
     
+    const payload = {
+      username: userForm.value.username,
+      password: userForm.value.password,
+      is_admin: userForm.value.is_admin,
+      role: userForm.value.is_admin ? null : userForm.value.role
+    }
     if (dialogType.value === 'add') {
-      await userApi.createUser({
-        username: userForm.value.username,
-        password: userForm.value.password,
-        is_admin: userForm.value.is_admin
-      })
+      await userApi.createUser(payload)
       ElMessage.success('添加成功')
     } else {
-      await userApi.updateUser(userForm.value.id, userForm.value)
+      await userApi.updateUser(userForm.value.id, payload)
       ElMessage.success('更新成功')
     }
     dialogVisible.value = false

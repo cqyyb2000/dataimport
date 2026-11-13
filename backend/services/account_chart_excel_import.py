@@ -8,7 +8,7 @@ from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 
-from Model import Account, AccountAuxiliary, AccountBookFiscalYear, db
+from Model import Account, AccountAuxiliary, AccountBookFiscalYear, CustomArchiveItem, db
 from services.share_import_service import _int_or_none, _str_or_empty
 
 _HEADER_SCAN_MAX_ROW = 15
@@ -23,8 +23,10 @@ _TYPE_LEGACY_ALIASES = ('科目类型',)
 _BALANCE_ALIASES = ('余额方向',)
 _IS_LEAF_ALIASES = ('是否末级',)
 _IS_ENABLED_ALIASES = ('是否启用',)
-_PARENT_ALIASES = ('上级科目编号', '上级科目', '父科目编号')
+_PARENT_ALIASES = ('上级科目编号', '上级科目', '父科目编号', '父级编码', '父级科目', '父级科目编码')
 _AUX_ALIASES = ('辅助核算项', '辅助核算', '辅助项')
+# 单元格里是档案/辅助项编码（如 3），不是名称。须与上面的名称列分开识别。
+_AUX_CODE_ALIASES = ('辅助项编码', '辅助核算项编码', '辅助项编号')
 
 _AUX_SPLIT_RE = re.compile(r'[,，、;；]+')
 
@@ -32,6 +34,12 @@ _AUX_SPLIT_RE = re.compile(r'[,，、;；]+')
 def _cell_str(v: Any) -> str:
     if v is None:
         return ''
+    if isinstance(v, bool):
+        return '1' if v else '0'
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    if isinstance(v, int):
+        return str(v)
     return str(v).strip()
 
 
@@ -98,6 +106,7 @@ def parse_account_chart_excel(file_bytes: bytes) -> tuple[list[dict[str, Any]], 
                 'is_enabled': _resolve_col_index(headers, _IS_ENABLED_ALIASES),
                 'parent': _resolve_col_index(headers, _PARENT_ALIASES),
                 'aux': _resolve_col_index(headers, _AUX_ALIASES),
+                'aux_code': _resolve_col_index(headers, _AUX_CODE_ALIASES),
             }
             break
 
@@ -158,8 +167,10 @@ def parse_account_chart_excel(file_bytes: bytes) -> tuple[list[dict[str, Any]], 
             is_en_cell = get_ci('is_enabled') if idx['is_enabled'] >= 0 else None
             parent_cell = get_ci('parent') if idx['parent'] >= 0 else None
             aux_cell = get_ci('aux') if idx['aux'] >= 0 else None
+            aux_code_cell = get_ci('aux_code') if idx['aux_code'] >= 0 else None
 
-            aux_names = _split_auxiliary_names(aux_cell)
+            aux_codes = _split_auxiliary_names(aux_code_cell)
+            aux_names = [] if aux_codes else _split_auxiliary_names(aux_cell)
 
             rows_out.append({
                 '科目编号': code,
@@ -173,14 +184,56 @@ def parse_account_chart_excel(file_bytes: bytes) -> tuple[list[dict[str, Any]], 
                 '是否启用': is_en_cell,
                 '上级科目编号': _cell_str(parent_cell) or None,
                 '_auxiliary_names': aux_names,
+                '_auxiliary_codes': aux_codes,
             })
 
         if not rows_out:
             raise ValueError('未读取到有效数据行')
 
+        _fill_missing_levels(rows_out)
+        if idx['is_leaf'] < 0:
+            parent_codes = {
+                _str_or_empty(r.get('上级科目编号'))
+                for r in rows_out
+                if _str_or_empty(r.get('上级科目编号'))
+            }
+            for r in rows_out:
+                r['是否末级'] = '0' if r['科目编号'] in parent_codes else '1'
+
         return rows_out, skipped
     finally:
         wb.close()
+
+
+def _fill_missing_levels(rows: list[dict[str, Any]]) -> None:
+    """没有科目级次时，按上级科目链计算级次。"""
+    by_code = {_str_or_empty(r.get('科目编号')): r for r in rows}
+    memo: dict[str, int] = {}
+
+    def depth(code: str, stack: set[str]) -> int:
+        if code in memo:
+            return memo[code]
+        row = by_code.get(code)
+        explicit = _int_or_none(row.get('科目级次')) if row else None
+        if explicit:
+            memo[code] = explicit
+            return explicit
+        if row is None or code in stack:
+            memo[code] = 1
+            return 1
+        parent = _str_or_empty(row.get('上级科目编号'))
+        if not parent:
+            level = 1
+        elif parent not in by_code:
+            level = 2
+        else:
+            level = depth(parent, stack | {code}) + 1
+        memo[code] = level
+        return level
+
+    for row in rows:
+        if _int_or_none(row.get('科目级次')) is None:
+            row['科目级次'] = depth(_str_or_empty(row.get('科目编号')), set())
 
 
 def _row_to_account_fields(row: dict[str, Any]) -> dict[str, Any]:
@@ -243,6 +296,34 @@ def run_account_chart_excel_import(
         key=lambda r: (_int_or_none(r.get('科目级次')) or 1, _str_or_empty(r.get('科目编号'))),
     )
 
+    file_codes = {_str_or_empty(r.get('科目编号')) for r in sorted_rows}
+    existing_codes = {
+        row.account_code
+        for row in Account.query.filter_by(
+            account_book_code=account_book_code,
+            fiscal_year=fiscal_year,
+        ).all()
+    }
+    known_codes = file_codes | existing_codes
+    for r in sorted_rows:
+        code = _str_or_empty(r.get('科目编号'))
+        parent = _str_or_empty(r.get('上级科目编号'))
+        if parent and parent == code:
+            return {'success': False, 'message': '上级科目不能是自己: %s' % code}
+        if parent and parent not in known_codes:
+            return {
+                'success': False,
+                'message': '上级科目不存在: %s（科目 %s）' % (parent, code),
+            }
+
+    archive_names = {
+        item.archive_item_code: item.archive_item_name
+        for item in CustomArchiveItem.query.filter_by(
+            account_book_code=account_book_code,
+            fiscal_year=fiscal_year,
+        ).all()
+    }
+
     if mode == 'append':
         for r in sorted_rows:
             code = _str_or_empty(r.get('科目编号'))
@@ -269,6 +350,7 @@ def run_account_chart_excel_import(
             fields = _row_to_account_fields(r)
             code = fields['account_code']
             aux_names: list[str] = r.get('_auxiliary_names') or []
+            aux_codes: list[str] = r.get('_auxiliary_codes') or []
 
             rec = Account.query.filter_by(
                 account_book_code=account_book_code,
@@ -310,20 +392,40 @@ def run_account_chart_excel_import(
                 account_code=code,
             ).delete(synchronize_session=False)
 
-            for i, aux_name in enumerate(aux_names, start=1):
-                db.session.add(
-                    AccountAuxiliary(
-                        account_book_code=account_book_code,
-                        fiscal_year=fiscal_year,
-                        account_code=code,
-                        auxiliary_item_code=str(i),
-                        auxiliary_item_name=aux_name,
-                        corresponding_archive=None,
-                        auxiliary_item_description=None,
-                        status=1,
+            if aux_codes:
+                seen_aux: set[str] = set()
+                for aux_code in aux_codes:
+                    if aux_code in seen_aux:
+                        continue
+                    seen_aux.add(aux_code)
+                    db.session.add(
+                        AccountAuxiliary(
+                            account_book_code=account_book_code,
+                            fiscal_year=fiscal_year,
+                            account_code=code,
+                            auxiliary_item_code=aux_code,
+                            auxiliary_item_name=archive_names.get(aux_code) or aux_code,
+                            corresponding_archive=aux_code,
+                            auxiliary_item_description=None,
+                            status=1,
+                        )
                     )
-                )
-                stats['auxiliaries_created'] += 1
+                    stats['auxiliaries_created'] += 1
+            else:
+                for i, aux_name in enumerate(aux_names, start=1):
+                    db.session.add(
+                        AccountAuxiliary(
+                            account_book_code=account_book_code,
+                            fiscal_year=fiscal_year,
+                            account_code=code,
+                            auxiliary_item_code=str(i),
+                            auxiliary_item_name=aux_name,
+                            corresponding_archive=None,
+                            auxiliary_item_description=None,
+                            status=1,
+                        )
+                    )
+                    stats['auxiliaries_created'] += 1
 
         db.session.commit()
         return {

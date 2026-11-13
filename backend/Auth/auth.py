@@ -8,6 +8,41 @@ from functools import wraps
 
 from Model.dataCls import User, Permission, Menu
 
+BX_MENU_COMPONENTS = (
+    'bx/DepartmentProject',
+    'bx/Budget',
+    'bx/ClaimEntry',
+    'bx/ClaimList',
+    'bx/ClaimSummary',
+)
+BX_CASHIER_COMPONENTS = (
+    'bx/ClaimList',
+    'bx/ClaimSummary',
+)
+
+
+def _merge_bx_menu_ids(user, permission_menu_ids):
+    """报销台账菜单按角色发放。权限表里勾选的报销菜单不替代角色。"""
+    bx_rows = Menu.query.filter(Menu.component.in_(BX_MENU_COMPONENTS)).all()
+    bx_ids = {row.id for row in bx_rows}
+    parent = Menu.query.filter(Menu.name == '报销台账', Menu.parent_id == 0).first()
+    if parent:
+        bx_ids.add(parent.id)
+    kept = [menu_id for menu_id in permission_menu_ids if menu_id not in bx_ids]
+    if user is None:
+        return kept
+    if user.is_admin or user.role == User.ROLE_ACCOUNTANT:
+        components = BX_MENU_COMPONENTS
+    elif user.role == User.ROLE_CASHIER:
+        components = BX_CASHIER_COMPONENTS
+    else:
+        return kept
+    extra = [row.id for row in bx_rows if row.component in components]
+    if extra and parent:
+        extra.append(parent.id)
+    return kept + extra
+
+
 SECRET_KEY = os.getenv('SECRET_KEY', 'key031125')
 
 
@@ -86,9 +121,11 @@ def get_user_permissions(user_id):
         # 管理员获取所有菜单
         all_menus = Menu.query.order_by(Menu.parent_id, Menu.sort_order).all()
     else:
-        # 原有逻辑保持不变
         permission_menu_ids = [p.menu_id for p in Permission.query.filter_by(user_id=user_id).all()]
-        all_menus = Menu.query.filter(Menu.id.in_(permission_menu_ids)).order_by(Menu.parent_id, Menu.sort_order).all()
+        allowed_ids = _merge_bx_menu_ids(user, permission_menu_ids)
+        if not allowed_ids:
+            return []
+        all_menus = Menu.query.filter(Menu.id.in_(allowed_ids)).order_by(Menu.parent_id, Menu.sort_order).all()
 
     # 以下保持原有代码不变
     menu_dict = {}

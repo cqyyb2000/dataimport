@@ -74,6 +74,22 @@ export const customArchiveItemApi = {
   getValues(accountBookCode, fiscalYear, archiveItemCode, asTree = false) {
     const params = asTree ? { as_tree: 1 } : {}
     return api.get(`/custom_archive_items/${accountBookCode}/${fiscalYear}/${archiveItemCode}/values`, { params })
+  },
+
+  /**
+   * Excel 引入档案项。表头：辅助项名称、辅助项编码、编码规则。
+   * @param {File} file
+   * @param {string} accountBookCode
+   * @param {number|string} fiscalYear
+   */
+  importExcel(file, accountBookCode, fiscalYear) {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('account_book_code', accountBookCode)
+    formData.append('fiscal_year', fiscalYear)
+    return api.post('/custom_archive_items/import_excel', formData, {
+      timeout: 300000
+    })
   }
 }
 
