@@ -47,6 +47,7 @@ export { accountBookApi } from './accountBook'
 export { glApi } from './gl'
 export { voucherApi } from './voucher'
 export { accountApi, accountAuxiliaryApi } from './account'
+export { bxApi } from './bx'
 
 
 

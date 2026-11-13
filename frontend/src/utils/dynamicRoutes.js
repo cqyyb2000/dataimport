@@ -23,7 +23,13 @@ const componentMap = {
   'glvoucher/VoucherEntry': () => import('@/views/glvoucher/VoucherEntry.vue'),
 
   // 报表中心
-  'reportCenter/AccountBalanceReport': () => import('@/views/reportCenter/AccountBalanceReport.vue')
+  'reportCenter/AccountBalanceReport': () => import('@/views/reportCenter/AccountBalanceReport.vue'),
+
+  'bx/DepartmentProject': () => import('@/views/bx/DepartmentProject.vue'),
+  'bx/Budget': () => import('@/views/bx/Budget.vue'),
+  'bx/ClaimEntry': () => import('@/views/bx/ClaimEntry.vue'),
+  'bx/ClaimList': () => import('@/views/bx/ClaimList.vue'),
+  'bx/ClaimSummary': () => import('@/views/bx/ClaimSummary.vue')
 }
 
 
@@ -55,4 +61,16 @@ export function generateRoutesFromMenu(menuList) {
     }
   })
   return routes
+}
+
+const dynamicRemovers = []
+
+export function refreshDynamicRoutes(router) {
+  while (dynamicRemovers.length) {
+    dynamicRemovers.pop()()
+  }
+  const menus = JSON.parse(localStorage.getItem('menus') || '[]')
+  generateRoutesFromMenu(menus).forEach((route) => {
+    dynamicRemovers.push(router.addRoute('home', route))
+  })
 }

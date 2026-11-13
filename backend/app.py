@@ -15,6 +15,7 @@ from routes.custom_archive import custom_archive_bp
 from routes.vouchers import vouchers_bp
 from routes.gl_account_balance import gl_account_balance_bp
 from routes.accounts import accounts_bp
+from routes.bx import bx_bp
 from config_reader import config_reader
 
 # 加载环境变量（与 set.config 一样锚定 backend 目录，避免服务进程 cwd 非项目目录时读到别处）
@@ -97,6 +98,7 @@ app.register_blueprint(custom_archive_bp)
 app.register_blueprint(vouchers_bp)
 app.register_blueprint(gl_account_balance_bp)
 app.register_blueprint(accounts_bp)
+app.register_blueprint(bx_bp)
 
 
 def setup_logging():

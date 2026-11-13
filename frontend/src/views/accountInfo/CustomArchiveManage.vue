@@ -309,12 +309,39 @@
             <el-option label="停用" :value="0" />
           </el-select>
         </el-form-item>
+        <p v-if="!isEditItem" class="item-import-hint">
+          也可按当前账套和年度引入 Excel。表头需含辅助项名称、辅助项编码、编码规则；名称中含「固定」的行不引入。有「是否层级」「描述信息」「年度」列时会一并写入，年度与当前选择不一致的行会跳过。
+        </p>
       </el-form>
       <template #footer>
-        <el-button @click="itemDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmitItem">
-          {{ isEditItem ? '保存修改' : '创建档案项' }}
-        </el-button>
+        <div class="item-dialog-footer">
+          <el-upload
+            v-if="!isEditItem"
+            ref="itemExcelUploadRef"
+            :auto-upload="false"
+            :show-file-list="false"
+            :limit="1"
+            accept=".xlsx,.xlsm"
+            :disabled="!itemFormData.account_book_code || !itemFormData.fiscal_year || importingItemExcel"
+            :on-change="handleItemExcelFileChange"
+            :on-exceed="handleItemExcelExceed"
+          >
+            <el-button
+              type="success"
+              :loading="importingItemExcel"
+              :disabled="!itemFormData.account_book_code || !itemFormData.fiscal_year"
+            >
+              <el-icon><Upload /></el-icon>
+              Excel引入
+            </el-button>
+          </el-upload>
+          <div class="item-dialog-footer-actions">
+            <el-button @click="itemDialogVisible = false">取消</el-button>
+            <el-button type="primary" :loading="submitting" @click="handleSubmitItem">
+              {{ isEditItem ? '保存修改' : '创建档案项' }}
+            </el-button>
+          </div>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -389,6 +416,8 @@ const valueFormRules = {
 const itemDialogVisible = ref(false)
 const isEditItem = ref(false)
 const itemFormRef = ref(null)
+const itemExcelUploadRef = ref(null)
+const importingItemExcel = ref(false)
 const accountBookOptions = ref([])
 const fiscalYearOptions = ref([])
 
@@ -947,6 +976,63 @@ const handleAccountBookChange = async (code) => {
   }
 }
 
+const handleItemExcelExceed = () => {
+  ElMessage.warning('每次只能选择一个文件')
+}
+
+const handleItemExcelFileChange = async (uploadFile) => {
+  if (!itemFormData.account_book_code || !itemFormData.fiscal_year) {
+    ElMessage.warning('请先选择所属账套和会计年度')
+    itemExcelUploadRef.value?.clearFiles()
+    return
+  }
+  const rawFile = uploadFile?.raw
+  if (!rawFile) return
+  const isExcel = /\.(xlsx|xlsm)$/i.test(rawFile.name || '')
+  if (!isExcel) {
+    ElMessage.error('仅支持上传 Excel 文件（.xlsx/.xlsm）')
+    itemExcelUploadRef.value?.clearFiles()
+    return
+  }
+  const book = accountBookOptions.value.find(b => b.account_book_code === itemFormData.account_book_code)
+  const bookName = book?.account_book_name || itemFormData.account_book_code
+  try {
+    await ElMessageBox.confirm(
+      `确定把「${rawFile.name}」引入到账套「${bookName}」的 ${itemFormData.fiscal_year} 年度吗？名称中含「固定」的行不会引入。已存在的档案项编码会更新名称和编码规则。`,
+      '确认引入',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    importingItemExcel.value = true
+    const response = await customArchiveItemApi.importExcel(
+      rawFile,
+      itemFormData.account_book_code,
+      itemFormData.fiscal_year
+    )
+    if (response.data.success) {
+      const stats = response.data.data || {}
+      ElMessage.success(
+        `引入完成：新增 ${stats.inserted || 0}，更新 ${stats.updated || 0}，跳过名称含「固定」${stats.skipped_fixed || 0}，跳过年度不符 ${stats.skipped_year || 0}`
+      )
+      itemDialogVisible.value = false
+      loadTreeData()
+    } else {
+      ElMessage.error(response.data.message || 'Excel引入失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('Excel引入失败:', error)
+      ElMessage.error(error?.response?.data?.message || 'Excel引入失败')
+    }
+  } finally {
+    importingItemExcel.value = false
+    itemExcelUploadRef.value?.clearFiles()
+  }
+}
+
 // 提交档案项
 const handleSubmitItem = async () => {
   try {
@@ -995,6 +1081,23 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.item-import-hint {
+  margin: 4px 0 0;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.item-dialog-footer {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.item-dialog-footer-actions {
+  margin-left: auto;
+}
+
 .custom-archive-manage {
   display: flex;
   height: 100%;

@@ -85,6 +85,7 @@ import { User, Lock } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
 import { login } from '@/api';
 import { setAuthData } from '@/utils/auth';
+import { refreshDynamicRoutes } from '@/utils/dynamicRoutes';
 import { ElMessage } from 'element-plus';
 
 const router = useRouter();
@@ -116,10 +117,14 @@ const handleSubmit = async (formEl) => {
     if (response.data.success) {
       setAuthData(
         response.data.token,
-        { username: response.data.username },
+        {
+          username: response.data.username,
+          isAdmin: response.data.isAdmin,
+          role: response.data.role
+        },
         response.data.menus
       );
-      
+      refreshDynamicRoutes(router);
       router.push('/home/dashboard');
     } else {
       ElMessage.error('登录失败：' + response.data.message);

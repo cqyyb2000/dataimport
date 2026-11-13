@@ -248,6 +248,237 @@ def delete_custom_archive_item(current_user, account_book_code, fiscal_year, arc
         }), 500
 
 
+def _excel_cell_text(value):
+    """把 Excel 单元格转成去空白的文本。整数型数字保留为不带小数点的字符串。"""
+    if value is None:
+        return ''
+    if isinstance(value, bool):
+        return '1' if value else '0'
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, int):
+        return str(value)
+    return str(value).strip()
+
+
+def _parse_hierarchy_cell(value):
+    text = _excel_cell_text(value)
+    if text == '':
+        return 1
+    if text in ('是', '1', 'Y', 'y', 'yes', 'Yes', 'true', 'True'):
+        return 1
+    if text in ('否', '0', 'N', 'n', 'no', 'No', 'false', 'False'):
+        return 0
+    raise ValueError(f'是否层级无法识别：{text}')
+
+
+def _parse_year_cell(value):
+    text = _excel_cell_text(value).replace('年度', '').strip()
+    if text == '':
+        return None
+    year = int(text)
+    return year
+
+
+def parse_custom_archive_item_rows(ws, fiscal_year):
+    """
+    解析辅助项 Excel。
+    必填表头：辅助项名称、辅助项编码、编码规则。
+    可选表头：是否层级、描述信息、年度。
+    辅助项名称包含「固定」的行跳过；年度列有值且与所选年度不一致的行跳过。
+    """
+    header_row_no = None
+    headers = []
+    for row_no, row in enumerate(ws.iter_rows(min_row=1, max_row=10, values_only=True), start=1):
+        current = [_excel_cell_text(v) for v in row]
+        if '辅助项名称' in current and '辅助项编码' in current and '编码规则' in current:
+            header_row_no = row_no
+            headers = current
+            break
+    if header_row_no is None:
+        raise ValueError('表头必须包含「辅助项名称」「辅助项编码」「编码规则」')
+
+    def col(name):
+        return headers.index(name) if name in headers else -1
+
+    idx_name = col('辅助项名称')
+    idx_code = col('辅助项编码')
+    idx_rule = col('编码规则')
+    idx_hierarchy = col('是否层级')
+    idx_desc = col('描述信息')
+    idx_year = col('年度')
+
+    rows = []
+    seen_codes = set()
+    skipped_fixed = 0
+    skipped_year = 0
+
+    for row_no, row in enumerate(ws.iter_rows(min_row=header_row_no + 1, values_only=True), start=header_row_no + 1):
+        def cell(idx):
+            if idx < 0 or idx >= len(row):
+                return ''
+            return _excel_cell_text(row[idx])
+
+        name = cell(idx_name)
+        code = cell(idx_code)
+        rule = cell(idx_rule)
+        desc = cell(idx_desc)
+        hierarchy_raw = row[idx_hierarchy] if idx_hierarchy >= 0 and idx_hierarchy < len(row) else None
+        year_raw = row[idx_year] if idx_year >= 0 and idx_year < len(row) else None
+
+        if not name and not code and not rule and not desc and _excel_cell_text(year_raw) == '' and _excel_cell_text(hierarchy_raw) == '':
+            continue
+        if '固定' in name:
+            skipped_fixed += 1
+            continue
+        if idx_year >= 0:
+            try:
+                row_year = _parse_year_cell(year_raw)
+            except (TypeError, ValueError):
+                raise ValueError(f'第 {row_no} 行年度无法识别：{_excel_cell_text(year_raw)}')
+            if row_year is not None and row_year != fiscal_year:
+                skipped_year += 1
+                continue
+        if not code or not name:
+            raise ValueError(f'第 {row_no} 行辅助项编码或辅助项名称为空')
+        if len(code) > 50:
+            raise ValueError(f'第 {row_no} 行辅助项编码超过 50 个字符：{code}')
+        if len(name) > 200:
+            raise ValueError(f'第 {row_no} 行辅助项名称超过 200 个字符')
+        if len(rule) > 50:
+            raise ValueError(f'第 {row_no} 行编码规则超过 50 个字符：{rule}')
+        if len(desc) > 500:
+            raise ValueError(f'第 {row_no} 行描述信息超过 500 个字符')
+        if code in seen_codes:
+            raise ValueError(f'Excel 中存在重复辅助项编码：{code}')
+        try:
+            has_hierarchy = _parse_hierarchy_cell(hierarchy_raw) if idx_hierarchy >= 0 else 1
+        except ValueError as exc:
+            raise ValueError(f'第 {row_no} 行{exc}') from exc
+        seen_codes.add(code)
+        rows.append({
+            'archive_item_code': code,
+            'archive_item_name': name,
+            'archive_code_rule': rule or None,
+            'archive_item_desc': desc or None,
+            'has_hierarchy': has_hierarchy,
+        })
+
+    return {
+        'rows': rows,
+        'skipped_fixed': skipped_fixed,
+        'skipped_year': skipped_year,
+    }
+
+
+@custom_archive_bp.route('/api/custom_archive_items/import_excel', methods=['POST'])
+@token_required
+def import_custom_archive_items_excel(current_user):
+    """
+    Excel 引入 custom_archive_item。
+    表头：辅助项名称、辅助项编码、编码规则；可选是否层级、描述信息、年度。
+    名称包含「固定」的行不引入。账套与会计年度取表单所选值。
+    """
+    try:
+        openpyxl_module = importlib.import_module('openpyxl')
+        load_workbook = openpyxl_module.load_workbook
+    except Exception:
+        return jsonify({
+            'success': False,
+            'message': '缺少 openpyxl 依赖，请先安装：pip install openpyxl'
+        }), 500
+
+    try:
+        account_book_code = (request.form.get('account_book_code') or '').strip()
+        fiscal_year_raw = request.form.get('fiscal_year')
+        if not account_book_code:
+            return jsonify({'success': False, 'message': '账套编码不能为空'}), 400
+        if not fiscal_year_raw:
+            return jsonify({'success': False, 'message': '会计年度不能为空'}), 400
+        try:
+            fiscal_year = int(fiscal_year_raw)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'message': '会计年度必须为4位整数'}), 400
+        if fiscal_year < 1990 or fiscal_year > 2100:
+            return jsonify({'success': False, 'message': '会计年度应在 1990～2100 之间'}), 400
+
+        if not AccountBookFiscalYear.query.filter_by(
+            account_book_code=account_book_code, fiscal_year=fiscal_year
+        ).first():
+            return jsonify({
+                'success': False,
+                'message': f'账套年度不存在: {account_book_code}/{fiscal_year}'
+            }), 400
+
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': '请上传Excel文件（字段名：file）'}), 400
+        file = request.files['file']
+        if not file or file.filename == '':
+            return jsonify({'success': False, 'message': '未选择文件'}), 400
+        filename = file.filename.lower()
+        if not (filename.endswith('.xlsx') or filename.endswith('.xlsm')):
+            return jsonify({'success': False, 'message': '仅支持 .xlsx / .xlsm 文件'}), 400
+
+        wb = load_workbook(filename=io.BytesIO(file.read()), data_only=False, read_only=True)
+        parsed = parse_custom_archive_item_rows(wb.worksheets[0], fiscal_year)
+        rows = parsed['rows']
+        skipped_fixed = parsed['skipped_fixed']
+        skipped_year = parsed['skipped_year']
+        if not rows:
+            parts = []
+            if skipped_fixed:
+                parts.append(f'已跳过名称含「固定」{skipped_fixed} 行')
+            if skipped_year:
+                parts.append(f'已跳过年度不符 {skipped_year} 行')
+            detail = ('，' + '，'.join(parts)) if parts else ''
+            return jsonify({'success': False, 'message': f'没有可引入的数据{detail}'}), 400
+
+        inserted = 0
+        updated = 0
+        for row in rows:
+            item = CustomArchiveItem.query.get((account_book_code, fiscal_year, row['archive_item_code']))
+            if item:
+                item.archive_item_name = row['archive_item_name']
+                item.archive_code_rule = row['archive_code_rule']
+                item.archive_item_desc = row['archive_item_desc']
+                item.has_hierarchy = row['has_hierarchy']
+                updated += 1
+            else:
+                db.session.add(CustomArchiveItem(
+                    account_book_code=account_book_code,
+                    fiscal_year=fiscal_year,
+                    archive_item_code=row['archive_item_code'],
+                    archive_item_name=row['archive_item_name'],
+                    archive_item_desc=row['archive_item_desc'],
+                    has_hierarchy=row['has_hierarchy'],
+                    archive_code_rule=row['archive_code_rule'],
+                    remark=None,
+                    status=1,
+                ))
+                inserted += 1
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': 'Excel引入成功',
+            'data': {
+                'inserted': inserted,
+                'updated': updated,
+                'skipped_fixed': skipped_fixed,
+                'skipped_year': skipped_year,
+                'total': len(rows),
+            }
+        })
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Excel引入失败: {str(e)}'
+        }), 500
+
+
 # ========== 自定义档案值（CustomArchiveValue）CRUD ==========
 
 @custom_archive_bp.route('/api/custom_archive_values', methods=['GET'])

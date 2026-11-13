@@ -2,7 +2,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import UserLogin from '@/views/UserLogin.vue';
 import HomeView from '@/views/HomeView.vue';
-import { generateRoutesFromMenu } from '@/utils/dynamicRoutes';
+import { refreshDynamicRoutes } from '@/utils/dynamicRoutes';
 import { isAuthenticated, clearAuthData } from '@/utils/auth';
 
 //router/index.js
@@ -89,6 +89,36 @@ const routes = [
         name: 'AccountArchiveManage',
         component: () => import('@/views/accountInfo/AccountArchiveManage.vue'),
         meta: { requiresAuth: true, title: '科目档案' }
+      },
+      {
+        path: '/bx/archive',
+        name: 'bxArchive',
+        component: () => import('@/views/bx/DepartmentProject.vue'),
+        meta: { requiresAuth: true, title: '部门与项目' }
+      },
+      {
+        path: '/bx/budget',
+        name: 'bxBudget',
+        component: () => import('@/views/bx/Budget.vue'),
+        meta: { requiresAuth: true, title: '预算' }
+      },
+      {
+        path: '/bx/entry',
+        name: 'bxClaimEntry',
+        component: () => import('@/views/bx/ClaimEntry.vue'),
+        meta: { requiresAuth: true, title: '报销录入' }
+      },
+      {
+        path: '/bx/claims',
+        name: 'bxClaimList',
+        component: () => import('@/views/bx/ClaimList.vue'),
+        meta: { requiresAuth: true, title: '报销明细' }
+      },
+      {
+        path: '/bx/summary',
+        name: 'bxClaimSummary',
+        component: () => import('@/views/bx/ClaimSummary.vue'),
+        meta: { requiresAuth: true, title: '单位报销统计' }
       }
     ]
   }
@@ -99,17 +129,8 @@ const router = createRouter({
   routes,
 });
 
-// 动态注册菜单路由
-function addDynamicRoutes() {
-  const menus = JSON.parse(localStorage.getItem('menus') || '[]');
-  const dynamicRoutes = generateRoutesFromMenu(menus);
-  dynamicRoutes.forEach(route => {
-    router.addRoute('home', route); // 修改为使用 'home' 作为父路由名称
-  });
-}
-
 // 页面刷新时自动注册动态路由
-addDynamicRoutes();
+refreshDynamicRoutes(router);
 
 // 全局前置守卫，用于验证登录状态
 router.beforeEach((to, from, next) => {
